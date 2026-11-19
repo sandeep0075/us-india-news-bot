@@ -1,9 +1,12 @@
-name: US-India News Image Bot
+name: US-India News Infographic Bot
 
 on:
   schedule:
     - cron: "0 */2 * * *" # Runs every 2 hours (UTC)
-  workflow_dispatch:       # Lets you trigger a test run manually
+  workflow_dispatch:       # Allows manual test runs from the Actions tab
+
+permissions:
+  contents: write          # Allows the bot to save seen_stories.json back to the repo
 
 jobs:
   send-digest:
@@ -17,12 +20,25 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python packages and Chromium
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
 
-      - name: Run news digest bot
+      - name: Run news infographic bot
         env:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python bot.py
+
+      - name: Save seen stories history
+        run: |
+          if [ -n "$(git status --porcelain seen_stories.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add seen_stories.json
+            git commit -m "Update seen stories log"
+            git push
+          fi
